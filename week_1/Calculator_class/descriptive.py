@@ -102,7 +102,7 @@ class Calculator:
                 the_mode.append(data)
             else:
                 continue
-        if self.dataset == the_mode:
+        if ordered == the_mode:
             print("There is no mode")
             the_mode = None
         return the_mode
