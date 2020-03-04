@@ -1,6 +1,18 @@
 import pandas as pd
 import numpy as np
 from sklearn.utils import resample
+from imblearn.over_sampling import SMOTE
+from sklearn.metrics import mean_squared_error, accuracy_score, f1_score, roc_auc_score
+import pickle
+
+def pickle_read(path):
+    with open(path, "rb") as f:
+        pickle_file = pickle.load(f)
+    return pickle_file
+
+def pickle_write(item, path):
+    with open(path, "wb") as f:
+        pickle.dump(item, f)
 
 def increasing_debt(row, column, i):
     if i > 1 and row[column + f'{i}'] < row[column + f'{i - 1}'] and row["is_streak"] == 1:
@@ -56,15 +68,27 @@ def calculate_utilization(df):
     return df
 
 
-def class_imbalance(x_train, y_train, target, majority_val, minority_val, random_state):
-    df = pd.concat([pd.DataFrame(x_train), y_train], axis=1)
+def class_imbalance(X_train, y_train, target, majority_val, minority_val, random_state):
+    df = pd.concat([X_train, y_train], axis=1)
     majority, minority = df[df[target] == majority_val], df[df[target] == minority_val]
     simp_upsample = simple_resample(minority, majority, random_state)
     simp_downsample = simple_resample(majority, minority, random_state)
+    smote_x, smote_y = smote_data(X_train, y_train, random_state)
     up_y, up_X = simp_upsample[target], simp_upsample.drop(target, axis=1)
     return up_X, up_y
-
 
 def simple_resample(to_change, goal, random_state):
     resampled = resample(to_change, replace=True, n_samples=len(goal), random_state=random_state)
     return pd.concat([goal, resampled])
+
+def smote_data(X_train, y_train, random_state):
+    sm = SMOTE(sampling_strategy=1.0, random_state=random_state)
+    sm.fit_sample(X_train, y_train)
+    return X_train, y_train
+
+def evaluate_model(model, X_test, y_test):
+    y_pred = model.predict(X_test)
+    f1 = f1_score(y_test, y_pred)
+    accuracy = accuracy_score(y_test, y_pred)
+    print("F1 Score:", f1)
+    print("Accuracy:", accuracy)
