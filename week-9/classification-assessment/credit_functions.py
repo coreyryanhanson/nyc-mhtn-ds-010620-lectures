@@ -7,8 +7,20 @@ from sklearn.metrics import mean_squared_error, accuracy_score, f1_score, roc_au
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, PolynomialFeatures
 import pickle
+import inspect
+
 
 class ModelSwitcher(object):
+    def __init__(self, data):
+        if type(data) == DataPreprocessor:
+            self.data = data
+        else:
+            pass
+
+    def instantiate_data(self, df, target, cat_features=[], cont_features=[], balance_class=False, scale_type=False, poly_degree=False):
+        self.data = DataPreprocessor(df, target, cat_features=cat_features, cont_features=cont_features, balance_class=balance_class, scale_type=scale_type, poly_degree=poly_degree)
+
+class DataPreprocessor(object):
     def __init__(self, df, target, cat_features=[], cont_features=[], balance_class=False, scale_type=False, poly_degree=False):
         self.df = df
         self.random_state = 1
