@@ -2,21 +2,26 @@ import pandas as pd
 import numpy as np
 from sklearn.utils import resample
 from imblearn.over_sampling import SMOTE
+from imblearn.under_sampling import TomekLinks
 from sklearn.metrics import mean_squared_error, accuracy_score, f1_score, roc_auc_score
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, PolynomialFeatures
 import pickle
 
 class ModelSwitcher(object):
-    def __init__(self, df, target, selection, balance_class=False, scale_type=False):
+    def __init__(self, df, target, cat_features=[], cont_features=[], balance_class=False, scale_type=False, poly_degree=False):
         self.df = df
         self.random_state = 1
         self.test_size = .2
+        self.poly_degree = poly_degree
         self.balance_class = balance_class
         self.scale_type = scale_type
-        self.selection = selection
+        self.cat_features = pd.Index(cat_features)
+        self.cont_features = pd.Index(cont_features)
+        self.init_selection = self.cont_features.union(self.cat_features, sort=False)
+        self.selection = self.init_selection
         self.target = target
-        self.X = df[selection]
+        self.X = df[self.selection]
         self.y = df[target]
         self._data_preprocessing()
 
@@ -47,6 +52,7 @@ class ModelSwitcher(object):
         self.X_test = self.scaler.transform(self.X_test)
 
     def _data_preprocessing(self):
+        self._poly_features()
         self._train_test_split()
         self._class_imbalance(0, 1)
         self._scale_setter()
@@ -63,8 +69,11 @@ class ModelSwitcher(object):
             print("Performing downsample")
             self._simple_resample(majority, minority)
         elif self.balance_class == "smote":
-            print("Performing smote")
+            print("Performing SMOTE")
             self._smote_data()
+        elif self.balance_class == "tomek":
+            print("Performing Tomek Links")
+            self._tomek_data()
         else:
             print("Skipping class imbalance functions")
 
@@ -76,6 +85,27 @@ class ModelSwitcher(object):
     def _smote_data(self):
         sm = SMOTE(sampling_strategy=1.0, random_state=self.random_state)
         self.X_train, self.y_train = sm.fit_sample(self.X_train, self.y_train)
+
+    def _tomek_data(self):
+        tl = TomekLinks()
+        self.X_train, self.y_train = tl.fit_sample(self.X_train, self.y_train)
+
+    def _poly_features(self):
+        if type(self.poly_degree) == int:
+            print(f"Getting polynomial features of degree {self.poly_degree}")
+            X_cont = self.X[self.cont_features]
+            X_cont_index = X_cont.index
+            poly = PolynomialFeatures(degree=self.poly_degree, include_bias=False)
+            X_poly = poly.fit_transform(X_cont)
+            columns = pd.Index(poly.get_feature_names(X_cont.columns))
+            poly_df = pd.DataFrame(X_poly, index=X_cont_index, columns=columns)
+            self.poly_columns = columns.drop(labels=self.cont_features)
+            self.X = pd.concat([self.X[self.init_selection], poly_df[self.poly_columns]], axis=1)
+            self.selection = self.init_selection.union(self.poly_columns, sort=False)
+        else:
+            print("Skipping polynomial features")
+            self.poly_degree = False
+            self.X = self.X[self.init_selection]
 
     def column_drop(self, columns):
         self.selection = self.selection.drop(labels=columns)
